@@ -33,5 +33,6 @@ tags: {  # <amp-fx-flying-carpet>
   attrs: {
     name: "height"
     mandatory: true
+    scale-content: false
   }
 }

@@ -56,6 +56,13 @@ export class AmpFlyingCarpet extends AMP.BaseElement {
      */
     this.container_ = null;
 
+    /**
+     * Scales contents
+     * @type {boolean}
+     * @private
+     */
+    this.scaleContent_ = false;
+
     this.firstLayoutCompleted_ = false;
   }
 
@@ -76,6 +83,16 @@ export class AmpFlyingCarpet extends AMP.BaseElement {
     this.totalChildren_ = this.visibileChildren_(childNodes).length;
 
     this.children_.forEach(child => this.setAsOwner(child));
+
+    if (this.element.hasAttribute('scale-content')) {
+      try {
+        this.assertScalable_();
+        this.scaleContent_ = true;
+      } catch {
+        // don't scale then?
+        console.warn("Can't scale");
+      }
+    }
 
     const clip = doc.createElement('div');
     clip.setAttribute('class', 'i-amphtml-fx-flying-carpet-clip');
@@ -103,6 +120,9 @@ export class AmpFlyingCarpet extends AMP.BaseElement {
     if (this.firstLayoutCompleted_) {
       this.scheduleLayout(this.children_);
       listen(this.element, AmpEvents.BUILT, this.layoutBuiltChild_.bind(this));
+    }
+    if (this.scaleContent_) {
+      this.applyScaleTransform_(this.children_[0]);
     }
   }
 
@@ -145,6 +165,30 @@ export class AmpFlyingCarpet extends AMP.BaseElement {
     );
   }
 
+  /**
+   * Asserts that flying carpet has only 1 child with fixed layout
+   * @private
+   */
+  assertScalable_() {
+    const children = this.children_;
+    const childrenCount = children.length;
+    userAssert(
+      childrenCount === 1,
+      '<amp-fx-flying-carpet> should have only 1 child to be able to scale,' +
+        ' got %s instead: %s',
+      childrenCount,
+      children
+    );
+    const child = children[0];
+    userAssert(
+      child.layout_ === Layout.FIXED,
+      '<amp-fx-flying-carpet> child should have %s layout to be able to ' +
+        'scale, got %s instead',
+      Layout.FIXED,
+      child.layout_
+    );
+  }
+
   /** @override */
   layoutCallback() {
     try {
@@ -171,7 +215,35 @@ export class AmpFlyingCarpet extends AMP.BaseElement {
     const child = dev().assertElement(event.target);
     if (child.getOwner() === this.element) {
       this.scheduleLayout(child);
+
+      if (this.scaleContent_) {
+        this.applyScaleTransform_(child);
+      }
     }
+  }
+
+  /**
+   * Calculates and applies scale transform for the child
+   * @param {!Element} child
+   * @private
+   */
+  applyScaleTransform_(child) {
+    const viewport = this.getViewport();
+    const viewportHeight = viewport.getHeight();
+    const viewportWidth = viewport.getWidth();
+    // there should be proper way to get declared layout dimensions
+    const width = Number(child.getAttribute('width'));
+    const height = Number(child.getAttribute('height'));
+
+    console.log(`viewport: ${viewportWidth}x${viewportHeight}`);
+    console.log(`child: ${width}x${height}`);
+
+    const scaleCoefficient = Math.min(
+      viewportWidth / width,
+      viewportHeight / height
+    );
+
+    child.style.transform = `scale(${scaleCoefficient})`;
   }
 
   /** @override */
